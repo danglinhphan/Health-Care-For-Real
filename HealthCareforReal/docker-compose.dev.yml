@@ -1,0 +1,70 @@
+services:
+  # Database service
+  mariadb:
+    image: mariadb:11
+    container_name: mariadb
+    environment:
+      - MARIADB_ROOT_PASSWORD=rootpass
+      - MARIADB_DATABASE=tasksdb
+      - MARIADB_USER=user
+      - MARIADB_PASSWORD=pass
+    ports:
+      - "3003:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Backend service (development)
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    ports:
+      - "3002:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DB_HOST=mariadb
+      - DB_PORT=3306
+      - DB_NAME=tasksdb
+      - DB_USER=user
+      - DB_PASSWORD=pass
+    volumes:
+      - ./Backend:/usr/src/app
+    command: python3 -m uvicorn app:app --host=0.0.0.0 --port=8000 --reload
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Frontend service (development)
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3002/api
+      - NODE_ENV=development
+    volumes:
+      - ./Frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+      - mariadb
+    restart: unless-stopped
+
+volumes:
+  mariadb-data:
+
+networks:
+  default:
+    external: true
+    name: tasknet

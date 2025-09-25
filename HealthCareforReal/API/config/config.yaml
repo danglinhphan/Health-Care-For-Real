@@ -1,0 +1,31 @@
+# Qwen LoRA API Configuration
+
+model:
+  name: "Qwen/Qwen3-1.7B"
+  adapter_path: "./models/qwen_lora_adapters"
+  device: "auto"
+  torch_dtype: "bfloat16"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
+  reload: false
+  log_level: "info"
+
+generation:
+  default_temperature: 0.7
+  default_top_p: 0.9
+  default_top_k: 40
+  default_max_tokens: 1024
+  max_input_tokens: 2048
+
+cors:
+  allow_origins: ["*"]
+  allow_credentials: true
+  allow_methods: ["*"]
+  allow_headers: ["*"]
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

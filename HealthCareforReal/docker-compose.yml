@@ -1,0 +1,95 @@
+services:
+  # Custom API service
+  custom-api:
+    build:
+      context: ./API
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"  # Custom API on port 3001
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:3001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Database service
+  mariadb:
+    image: mariadb:11
+    container_name: mariadb
+    environment:
+      - MARIADB_ROOT_PASSWORD=rootpass
+      - MARIADB_DATABASE=tasksdb
+      - MARIADB_USER=user
+      - MARIADB_PASSWORD=pass
+    ports:
+      - "3003:3306"  # Database on port 3003
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "0.0.0.0", "-u", "root", "-prootpass"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Backend service
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    ports:
+      - "3002:8000"  # Backend API on port 3002
+    env_file:
+      - ./Backend/.env.example
+    environment:
+      - ENVIRONMENT=production
+      - DB_HOST=mariadb
+      - DB_PORT=3306
+      - DB_NAME=tasksdb
+      - DB_USER=user
+      - DB_PASSWORD=pass
+      - CUSTOM_API_URL=http://custom-api:3001
+    volumes:
+      - ./Backend:/usr/src/app
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      custom-api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend service
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3002/api
+    depends_on:
+      - backend
+      - mariadb
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mariadb-data:
+
+networks:
+  default:
+    name: tasknet
